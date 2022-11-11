@@ -16,7 +16,8 @@ const {
   getUserPosts,
 } = require("./controllers/postControllers");
 const { createComment } = require("./controllers/commentController");
-
+const User = require("./models/user");
+const checkAuth=require("./middleware/checkAuth")
 const app = express();
 const PORT = 3000;
 
@@ -31,18 +32,18 @@ mongoose
 
 app.use(express.json());
 
-const checkAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  // console.log(req.headers.authorization);
-  const token = authHeader && authHeader.split(" ")[0];
-  if (token == null) return res.sendStatus(401);
-  // console.log(token);
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
+// const checkAuth = (req, res, next) => {
+//   const authHeader = req.headers.authorization;
+//   // console.log(req.headers.authorization);
+//   const token = authHeader && authHeader.split(" ")[0];
+//   if (token == null) return res.sendStatus(401);
+//   // console.log(token);
+//   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+//     if (err) return res.sendStatus(403);
+//     req.user = user;
+//     next();
+//   });
+// };
 
 // const User = require("./models/user.js");
 
@@ -74,15 +75,23 @@ const checkAuth = (req, res, next) => {
 // };
 // getUser();
 
-app.get("/api/authenticate", (req, res) => {
+app.get("/api/authenticate",async (req, res) => {
+ try{
   let username = req.body.username;
   let password = req.body.password;
-
+  const user=await User.find({username}).exec()
+  if(user && user.password==password){
   const accessToken = jwt.sign(
     { username: username },
     process.env.ACCESS_TOKEN_SECRET
   );
   res.json({ accessToken: accessToken });
+  }
+  else res.sendStatus(401);
+}catch(err){
+  console.log(err);
+  res.status(500).json({success:false,error:err});
+}
 });
 
 app.route("/api/user").get(checkAuth, getUser);
@@ -98,4 +107,4 @@ app.route("/api/unlike/:id").post(checkAuth, unlikePost);
 app.route("/api/comment/:id").post(checkAuth, createComment);
 app.route("/api/all_posts").get(checkAuth, getUserPosts);
 
-app.listen(PORT);
+app.listen(process.env.PORT || PORT);
